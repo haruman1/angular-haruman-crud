@@ -1,5 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { api, User } from "@/lib/api";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from 'react';
+import { api, User } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -21,45 +27,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      const token = localStorage.getItem("auth_token");
+      const token = localStorage.getItem('auth_token');
       if (token) {
         const userData = await api.checkAuth();
         setUser(userData);
       }
     } catch {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("user_data");
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_data');
     } finally {
       setIsLoading(false);
     }
   };
 
   const login = async (email: string, password: string) => {
-    const response = await api.login({ email, password });
-    if (response.token) {
-      localStorage.setItem("auth_token", response.token);
-    }
-    if (response.user) {
-      localStorage.setItem("user_data", JSON.stringify(response.user));
-      setUser(response.user);
+    try {
+      const response = await api.login({ email, password });
+
+      if (!response) {
+        throw new Error('Login gagal, tidak ada response');
+      }
+
+      if (response.success === false) {
+        throw new Error(response.message || 'Login gagal');
+      }
+
+      if (!response.data?.token || !response.data?.user) {
+        throw new Error('Login gagal');
+      }
+
+      // Simpan token
+      localStorage.setItem('auth_token', response.data.token);
+
+      // Simpan user
+      localStorage.setItem('user_data', JSON.stringify(response.data.user));
+      setUser(response.data.user);
+
+      return { success: true };
+    } catch (error: any) {
+      // Wajib return agar UI bisa tahu error
+      return { success: false, message: error.message };
     }
   };
 
   const register = async (name: string, email: string, password: string) => {
     const response = await api.register({ name, email, password });
     if (response.token) {
-      localStorage.setItem("auth_token", response.token);
+      localStorage.setItem('auth_token', response.token);
     }
     if (response.user) {
-      localStorage.setItem("user_data", JSON.stringify(response.user));
+      localStorage.setItem('user_data', JSON.stringify(response.user));
       setUser(response.user);
     }
   };
 
   const logout = async () => {
     await api.logout();
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("user_data");
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user_data');
     setUser(null);
   };
 
@@ -73,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within AuthProvider");
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 }

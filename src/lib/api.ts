@@ -1,4 +1,8 @@
-const BASE_URL = "https://v3.haruman.me";
+const BASE_URL = import.meta.env.VITE_API_URL;
+
+/* ============================
+   TYPES
+============================= */
 
 export interface Stock {
   id: string;
@@ -34,48 +38,72 @@ export interface User {
   role?: string;
 }
 
-export interface AuthResponse {
-  user?: User;
-  token?: string;
-  message?: string;
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data: T;
 }
 
+/* ============================
+   TOKEN HEADER
+============================= */
+
 const getAuthHeader = () => {
-  const token = localStorage.getItem("auth_token");
-  return token ? { authorization: `Bearer ${token}` } : {};
+  const token = localStorage.getItem('auth_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+/* ============================
+   MAIN API CLIENT
+============================= */
+
 export const api = {
-  // Auth
-  async register(data: { name: string; email: string; password: string }): Promise<AuthResponse> {
-    const response = await fetch(`${BASE_URL}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+  /* ============================
+     AUTH
+  ============================= */
+
+  async register(data: {
+    name: string;
+    email: string;
+    password: string;
+  }): Promise<ApiResponse<{ token: string; user: User }>> {
+    const response = await fetch(`${BASE_URL}/auth/sign-up`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Registrasi gagal");
+
+    const json = await response.json();
+
+    if (!response.ok || !json.success) {
+      throw new Error(json.message || 'Registrasi gagal');
     }
-    return response.json();
+
+    return json;
   },
 
-  async login(data: { email: string; password: string }): Promise<AuthResponse> {
+  async login(data: {
+    email: string;
+    password: string;
+  }): Promise<ApiResponse<{ token: string; user: User }>> {
     const response = await fetch(`${BASE_URL}/auth/sign-in`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || "Login gagal");
+
+    const json = await response.json();
+
+    if (!response.ok || !json.success) {
+      throw new Error(json.message || 'Email atau password salah');
     }
-    return response.json();
+
+    return json;
   },
 
   async logout(): Promise<void> {
     await fetch(`${BASE_URL}/auth/logout`, {
-      method: "POST",
+      method: 'POST',
       headers: { ...getAuthHeader() },
     });
   },
@@ -86,136 +114,215 @@ export const api = {
         headers: { ...getAuthHeader() },
       });
       if (!response.ok) return null;
-      return response.json();
+      const json = await response.json();
+      if (!json.success) return null;
+      return json.data;
     } catch {
       return null;
     }
   },
 
-  // Stocks
+  /* ============================
+      STOCKS
+  ============================= */
+
   async getStocks(): Promise<Stock[]> {
-    const response = await fetch(`${BASE_URL}/stocks/`, {
+    const response = await fetch(`${BASE_URL}/stocks`, {
       headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error("Failed to fetch stocks");
-    return response.json();
+
+    const json = await response.json();
+
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
   async getStock(id: string): Promise<Stock> {
     const response = await fetch(`${BASE_URL}/stocks/${id}`, {
       headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error("Failed to fetch stock");
-    return response.json();
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
   async createStock(data: StockInput): Promise<Stock> {
-    const response = await fetch(`${BASE_URL}/stocks/tambah`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    const response = await fetch(`${BASE_URL}/stocks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to create stock");
-    return response.json();
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
   async updateStock(id: string, data: StockInput): Promise<Stock> {
     const response = await fetch(`${BASE_URL}/stocks/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to update stock");
-    return response.json();
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
   async deleteStock(id: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/stocks/preview/${id}`, {
-      method: "GET",
+    const response = await fetch(`${BASE_URL}/stocks/${id}`, {
+      method: 'DELETE',
       headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error("Failed to delete stock");
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
   },
 
-  // Stock Movements
+  /* ============================
+     MOVEMENTS
+  ============================= */
+
   async getMovements(): Promise<StockMovement[]> {
-    const response = await fetch(`${BASE_URL}/stocks/movement/`, {
+    const response = await fetch(`${BASE_URL}/stocks/movement`, {
       headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error("Failed to fetch movements");
-    return response.json();
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
   async createMovement(data: StockMovementInput): Promise<StockMovement> {
-    const response = await fetch(`${BASE_URL}/stocks/movement/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+    const response = await fetch(`${BASE_URL}/stocks/movement`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to create movement");
-    return response.json();
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
-  async updateMovement(id: string, data: Omit<StockMovementInput, "stock_id">): Promise<StockMovement> {
+  async updateMovement(
+    id: string,
+    data: Omit<StockMovementInput, 'stock_id'>
+  ): Promise<StockMovement> {
     const response = await fetch(`${BASE_URL}/stocks/movement/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to update movement");
-    return response.json();
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
   async deleteMovement(id: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/stocks/movement/delete/${id}`, {
-      method: "PATCH",
+    const response = await fetch(`${BASE_URL}/stocks/movement/${id}`, {
+      method: 'DELETE',
       headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error("Failed to delete movement");
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
   },
 
-  // Users
+  /* ============================
+      USERS
+  ============================= */
+
   async getUser(id: string): Promise<User> {
     const response = await fetch(`${BASE_URL}/users/${id}`, {
       headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error("Failed to fetch user");
-    return response.json();
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
-  async updateUserProfile(id: string, data: { name?: string; email?: string }): Promise<User> {
+  async updateUserProfile(
+    id: string,
+    data: { name?: string; email?: string }
+  ): Promise<User> {
     const response = await fetch(`${BASE_URL}/users/profile/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to update user");
-    return response.json();
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
+
+    return json.data;
   },
 
-  async changePassword(id: string, data: { oldPassword: string; newPassword: string }): Promise<void> {
+  async changePassword(
+    id: string,
+    data: { oldPassword: string; newPassword: string }
+  ): Promise<void> {
     const response = await fetch(`${BASE_URL}/users/change-password/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
       body: JSON.stringify(data),
     });
-    if (!response.ok) throw new Error("Failed to change password");
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
   },
 
   async changeRole(id: string, role: string): Promise<void> {
     const response = await fetch(`${BASE_URL}/users/change-role/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeader() },
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeader(),
+      },
       body: JSON.stringify({ role }),
     });
-    if (!response.ok) throw new Error("Failed to change role");
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
   },
 
   async deleteUser(id: string): Promise<void> {
-    const response = await fetch(`${BASE_URL}/users/delete-account/${id}`, {
-      method: "DELETE",
+    const response = await fetch(`${BASE_URL}/users/${id}`, {
+      method: 'DELETE',
       headers: { ...getAuthHeader() },
     });
-    if (!response.ok) throw new Error("Failed to delete user");
+
+    const json = await response.json();
+    if (!json.success) throw new Error(json.message);
   },
 };
